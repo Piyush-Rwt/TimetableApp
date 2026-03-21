@@ -46,6 +46,11 @@ The application provides a seamless, step-by-step experience for complex academi
    python main.py
    ```
 
+## 🛠️ Troubleshooting
+
+- **AttributeError: 'CourseSetupDialog' object has no attribute 'Accepted'**: Fixed by correctly referencing `QDialog.Accepted` instead of the dialog instance.
+- **AttributeError: 'ModeSelectorScreen' object has no attribute 'switch_cb'**: Fixed by properly assigning the callback to `self.switch_cb` in the constructor.
+
 ## 🗺️ Project Structure
 
 ```text

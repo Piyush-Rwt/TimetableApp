@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QDialog
 from PySide6.QtCore import Qt
 
 class ModeCard(QFrame):
@@ -39,6 +39,7 @@ class ModeCard(QFrame):
 class ModeSelectorScreen(QWidget):
     def __init__(self, switch_cb):
         super().__init__()
+        self.switch_cb = switch_cb
         layout = QVBoxLayout(self)
         
         # Header
@@ -76,5 +77,5 @@ class ModeSelectorScreen(QWidget):
     def start_education_mode(self):
         from ui.education.course_setup_dialog import CourseSetupDialog
         dialog = CourseSetupDialog(self)
-        if dialog.exec() == dialog.Accepted:
+        if dialog.exec() == QDialog.Accepted:
             self.switch_cb(4) # Switch to education wizard
