@@ -9,3 +9,4 @@ build/
 *.spec
 .DS_Store
 Thumbs.dbScheduleForge_v1.0.zip 
+releases/ 
