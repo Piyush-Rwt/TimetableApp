@@ -1,8 +1,14 @@
 import sys
+import os
 import requests
 import webbrowser
 from PySide6.QtWidgets import QApplication, QMessageBox
 from ui.main_window import MainWindow
+
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 VERSION_URL = "https://raw.githubusercontent.com/Piyush-Rwt/TimetableApp/main/version.json"
 CURRENT_VERSION = "1.0"

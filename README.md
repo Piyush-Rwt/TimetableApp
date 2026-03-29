@@ -1,86 +1,86 @@
-# ScheduleForge - Production Edition
+# ScheduleForge - University Edition
 
-A production-grade, multi-purpose desktop scheduling application built with Python, PySide6, and SQLite. ScheduleForge utilizes advanced Constraint Satisfaction Problem (CSP) backtracking algorithms to intelligently generate complex timetables for Personal, Business, and Educational environments.
+A production-grade, general-purpose university timetable generator built with Python, PySide6, and SQLite. ScheduleForge utilizes an advanced Constraint Satisfaction Problem (CSP) randomized greedy algorithm to generate optimized, conflict-free schedules for any college or department.
 
 ## 🚀 Key Features
 
-### 1. Multi-Mode Scheduling
-- **🧑 Personal Mode**: Manage daily routines, habits, and study plans with priority-based slot distribution and customizable active hours.
-- **💼 Business Mode**: Generate shift rosters, allocate staff while respecting maximum working hours, and manage unavailability.
-- **🎓 Education Mode**: A comprehensive 7-step wizard for generating full university and school timetables.
+### 🎓 General Purpose Education Mode
+A comprehensive 7-step wizard designed to handle complex university requirements:
+1. **Institution Setup**: Define working days, custom time slots, and break timings (e.g., Lunch, Tea).
+2. **Sections Setup**: Add multiple sections or classes with specific student counts.
+3. **Teacher Management**: Manage faculty names, maximum weekly work hours, and specific unavailability slots.
+4. **Subject Configuration**: Define Theory, Lab, and Elective subjects with assigned faculty and room requirements.
+5. **Room Management**: Add Classrooms, Labs, and Lecture Halls with capacity tracking.
+6. **AI Generation**: A background-threaded solver that runs multiple iterations to find the densest possible schedule.
+7. **Multi-View Results**: View results Section-wise, Teacher-wise, or Room-wise.
 
-### 2. Education Wizard Flow
-The application provides a seamless, step-by-step experience for complex academic scheduling:
-1. **Initial Course Setup**: Define institution name, courses, years, and section distribution (Standard or Group Mode).
-2. **Teacher Upload**: Bulk import teacher availability, maximum hours, and constraints via Excel templates.
-3. **Institution Setup**: Configure working days, daily time boundaries, slot durations, and break periods.
-4. **Group Setup**: Manage advanced section grouping (Core, Specialization, Electives).
-5. **Subject & Room Setup**: Define subjects (Theory/Labs), map them to groups, and import room capacities via Excel.
-6. **Constraint Setup**: Fine-tune hard and soft constraints (e.g., max consecutive hours, preferred lab placements).
-7. **Generation & Viewer**: Run the backtracking engine in a non-blocking background thread. View results via Section, Teacher, and Master tabs, and export to Excel.
+### 🧠 Advanced Constraint Engine
+*   **Hard Constraints**:
+    *   Zero double-booking for Teachers, Rooms, and Sections.
+    *   Automatic Lab splitting (G1/G2) for large sections.
+    *   Strict adherence to teacher unavailability and max hour limits.
+    *   Consecutive slot allocation for Lab sessions.
+    *   Strict room type and capacity verification.
+*   **Soft Constraints (Packing Logic)**:
+    *   **Compactness**: Prioritizes filling morning slots to minimize gaps.
+    *   **Clustering**: Groups subjects together to reduce idle time for students.
+    *   **Distribution**: Prevents same-subject clumping on a single day.
 
-### 3. Advanced CSP Backtracking Engine
-- **Hard Constraints**: Prevents double-booking of teachers/rooms/sections, respects break times, and honors specific availability windows.
-- **Soft Constraints (Slot Scoring)**: Intelligently minimizes teacher gaps, balances workload across the week, and optimizes lab placements.
+### 📊 Professional Export
+*   Export the entire generated timetable to a multi-sheet **Excel (.xlsx)** file.
+*   Includes beautifully formatted grids for every Section, Teacher, and Room.
 
-### 4. Data Persistence & Export
-- **SQLite Database**: All data (configurations, uploaded constraints, generated grids, and wizard drafts) is automatically persisted in `saved_tt/timetable_forge.db`.
-- **Excel Export**: Richly formatted `.xlsx` exports powered by `openpyxl` (color-coded, merged cells for labs and breaks).
+### 🛠️ Developer Tools (Admin Mode)
+*   A hidden **Admin** button in the bottom-right of the dashboard allows developers to:
+    *   **Auto Fill Test Data**: Instantly populate the DB with a realistic university dataset (5 teachers, 4 sections, 7 subjects, 5 rooms).
+    *   **Clear All Data**: Wipe the database clean for fresh testing.
 
-## 📦 Installation
+## 💻 Tech Stack
+*   **GUI**: PySide6 (Qt for Python)
+*   **Database**: SQLite
+*   **Engine**: Custom CSP Greedy Solver with randomized backtracking
+*   **Export**: OpenPyXL
+
+## 🛠️ Installation & Setup
 
 1. **Clone the repository**:
    ```bash
-   git clone <your-repo-url>
-   cd TimetableApp
+   git clone https://github.com/yourusername/ScheduleForge.git
+   cd ScheduleForge
    ```
 
-2. **Install dependencies**:
+2. **Set up virtual environment**:
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate
+   ```
+
+3. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
-   *(Note: The primary dependencies are `PySide6` and `openpyxl`)*
 
-3. **Run the application**:
+4. **Run the application**:
    ```bash
    python main.py
    ```
 
-## 🛠️ Troubleshooting
-
-- **AttributeError: 'CourseSetupDialog' object has no attribute 'Accepted'**: Fixed by correctly referencing `QDialog.Accepted` instead of the dialog instance.
-- **AttributeError: 'ModeSelectorScreen' object has no attribute 'switch_cb'**: Fixed by properly assigning the callback to `self.switch_cb` in the constructor.
-
-## 🗺️ Project Structure
-
+## 📂 Project Structure
 ```text
-/
-├── main.py                     # Application entry point
+├── main.py                # Application entry point
 ├── db/
-│   ├── schema.py               # SQLite schema definitions
-│   └── queries.py              # Database helper functions
+│   ├── schema.py          # Database table definitions
+│   └── queries.py         # SQL CRUD operations
 ├── engine/
-│   ├── constraint_solver.py    # Backtracking scheduling logic
-│   ├── slot_scorer.py          # Soft constraint evaluation
-│   └── excel_exporter.py       # openpyxl formatting & export
+│   ├── constraint_solver.py # Core AI scheduling logic
+│   ├── slot_scorer.py     # Soft constraint logic
+│   └── excel_exporter.py  # Excel generation logic
 ├── ui/
-│   ├── main_window.py          # Core window and stack manager
-│   ├── dashboard.py            # Landing screen
-│   ├── mode_selector.py        # Mode selection cards
-│   ├── personal_mode.py        # Personal scheduling flow
-│   ├── business_mode.py        # Business roster flow
-│   ├── styles.py               # Centralized QSS dark theme
-│   └── education/              # Education wizard screens
-│       ├── course_setup_dialog.py
-│       ├── teacher_upload.py
-│       ├── institution_setup.py
-│       ├── section_group_setup.py
-│       ├── subject_setup.py
-│       ├── constraint_setup.py
-│       ├── generate_screen.py
-│       └── timetable_viewer.py
-└── saved_tt/                   # Local storage for DB and Excel exports
+│   ├── styles.py          # Global Dark/Light themes
+│   ├── dashboard.py       # Home screen & Admin tools
+│   └── education/         # 7-Step wizard screens
+└── saved_tt/              # SQLite Databases & Exports
 ```
 
 ## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.

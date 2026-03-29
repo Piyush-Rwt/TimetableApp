@@ -1,67 +1,134 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QPushButton, QProgressBar, QTextEdit
+    QWidget, QVBoxLayout, QLabel, QPushButton, QProgressBar, QTextEdit, QMessageBox, QFrame
 )
-from PySide6.QtCore import QThread, Signal
-import time
+from PySide6.QtCore import QThread, Signal, Qt
+import db.queries as queries
+from engine.constraint_solver import ConstraintSolver
 
 class GenerationThread(QThread):
     progress = Signal(int, str)
-    finished = Signal(bool, str)
+    finished = Signal(bool, str, object)
 
     def run(self):
         try:
-            self.progress.emit(10, "Initializing slot grid...")
-            time.sleep(0.5)
-            self.progress.emit(30, "Locking break slots...")
-            time.sleep(0.5)
-            self.progress.emit(50, "Placing lab sessions...")
-            time.sleep(0.5)
-            self.progress.emit(70, "Placing theory classes...")
-            time.sleep(0.5)
-            self.progress.emit(85, "Applying soft constraints...")
-            time.sleep(0.5)
-            self.progress.emit(100, "Finalizing and saving...")
-            time.sleep(0.5)
-            self.finished.emit(True, "Done! Scheduled successfully.")
+            self.progress.emit(10, "Fetching data from database...")
+            inst_row = queries.get_institution()
+            if not inst_row:
+                self.finished.emit(False, "No institution setup found.", None)
+                return
+            inst = dict(inst_row)
+            breaks = [dict(b) for b in queries.get_breaks()]
+            sections = [dict(s) for s in queries.get_all_sections()]
+            teachers = [dict(t) for t in queries.get_all_teachers()]
+            subjects = [dict(s) for s in queries.get_all_subjects()]
+            rooms = [dict(r) for r in queries.get_all_rooms()]
+            
+            unav = []
+            for t in teachers:
+                unav.extend([dict(u) for u in queries.get_teacher_unavailability(t['id'])])
+            
+            elective_opts = [] 
+            
+            if not sections or not subjects or not rooms:
+                self.finished.emit(False, "Missing data: sections, subjects, or rooms.", None)
+                return
+
+            self.progress.emit(30, "Initializing solver engine...")
+            solver = ConstraintSolver(inst, breaks, sections, teachers, unav, subjects, elective_opts, rooms)
+            
+            self.progress.emit(50, "Running constraint satisfaction solver...")
+            result = solver.solve()
+            
+            if not result['success']:
+                self.progress.emit(70, f"Warning: {len(result['failed'])} subjects could not be scheduled.")
+            
+            self.progress.emit(80, "Persisting results to database...")
+            queries.clear_timetable_entries()
+            
+            for sec_id, days in result['grid'].items():
+                for day, slots in days.items():
+                    for slot_idx, entry in slots.items():
+                        if entry and isinstance(entry, dict):
+                            t_id = int(entry.get('teacher_id') or 0)
+                            s_id = int(entry.get('subject_id') or 0)
+                            r_id = int(entry.get('room_id') or 0)
+                            
+                            # Debug print as requested by user
+                            print(f"Inserting: section={sec_id}, subject={s_id}, teacher={t_id}, room={r_id}, day={day}, slot={slot_idx}")
+                            
+                            queries.insert_timetable_entry({
+                                'section_id': int(sec_id),
+                                'subject_id': s_id,
+                                'teacher_id': t_id,
+                                'room_id': r_id,
+                                'day': day,
+                                'slot_index': int(slot_idx),
+                                'is_lab': entry.get('is_lab', 0),
+                                'elective_option_id': None
+                            })
+            
+            self.progress.emit(100, "Done.")
+            self.finished.emit(True, "Generation complete.", result)
+            
         except Exception as e:
-            self.finished.emit(False, str(e))
+            import traceback
+            err_msg = traceback.format_exc()
+            self.finished.emit(False, f"Error: {str(e)}\n\nFull details:\n{err_msg}", None)
 
 class GenerateScreen(QWidget):
     def __init__(self, wizard_cb):
         super().__init__()
         self.wizard_cb = wizard_cb
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
 
         title = QLabel("Step 6: Generate Timetable")
         title.setObjectName("TitleLabel")
         layout.addWidget(title)
 
-        self.summary_lbl = QLabel("Summary: 0 teachers, 0 sections, 0 subjects, 0 rooms")
-        layout.addWidget(self.summary_lbl)
+        # Status Card
+        status_frame = QFrame()
+        status_frame.setObjectName("Card")
+        status_layout = QVBoxLayout(status_frame)
+        status_layout.setSpacing(15)
 
-        self.btn_gen = QPushButton("Generate Timetables")
+        self.status_lbl = QLabel("Ready to generate.")
+        self.status_lbl.setStyleSheet("font-size: 16px; color: #8b8fa8;")
+        status_layout.addWidget(self.status_lbl)
+
+        self.btn_gen = QPushButton("🚀 Start Generation")
         self.btn_gen.setObjectName("PrimaryButton")
         self.btn_gen.setFixedSize(250, 50)
         self.btn_gen.clicked.connect(self.start_generation)
-        layout.addWidget(self.btn_gen)
+        status_layout.addWidget(self.btn_gen, alignment=Qt.AlignCenter)
 
         self.progress_bar = QProgressBar()
-        self.progress_bar.setValue(0)
         self.progress_bar.setVisible(False)
-        layout.addWidget(self.progress_bar)
+        self.progress_bar.setFixedHeight(25)
+        status_layout.addWidget(self.progress_bar)
+        
+        layout.addWidget(status_frame)
 
-        self.status_lbl = QLabel("")
-        layout.addWidget(self.status_lbl)
-
+        # Log Card
+        log_frame = QFrame()
+        log_frame.setObjectName("Card")
+        log_layout = QVBoxLayout(log_frame)
+        log_layout.addWidget(QLabel("Generation Log:"))
         self.log_txt = QTextEdit()
         self.log_txt.setReadOnly(True)
-        layout.addWidget(self.log_txt)
+        self.log_txt.setMinimumHeight(300)
+        log_layout.addWidget(self.log_txt)
+        layout.addWidget(log_frame)
 
-        self.btn_view = QPushButton("View Timetables →")
+        self.btn_view = QPushButton("View Results →")
         self.btn_view.setObjectName("PrimaryButton")
+        self.btn_view.setFixedSize(200, 50)
         self.btn_view.setVisible(False)
-        self.btn_view.clicked.connect(lambda: self.wizard_cb(6)) # Index 6 is view
-        layout.addWidget(self.btn_view)
+        self.btn_view.clicked.connect(lambda: self.wizard_cb(6))
+        layout.addWidget(self.btn_view, alignment=Qt.AlignRight)
+
+        layout.addStretch()
 
     def start_generation(self):
         self.btn_gen.setEnabled(False)
@@ -76,12 +143,26 @@ class GenerateScreen(QWidget):
 
     def update_progress(self, val, msg):
         self.progress_bar.setValue(val)
-        self.status_lbl.setText(msg)
         self.log_txt.append(msg)
 
-    def generation_finished(self, success, msg):
+    def generation_finished(self, success, msg, result):
         self.btn_gen.setEnabled(True)
-        self.status_lbl.setText(msg)
         self.log_txt.append(msg)
         if success:
+            if not result['success']:
+                fail_details = []
+                for f in result['failed']:
+                    group_str = f" ({f['group']})" if f.get('group') else ""
+                    fail_details.append(f"• {f['subject']['code']}{group_str} - {f['hours_lost']}hrs lost (Section {f['section_name']})")
+                
+                self.log_txt.append("\n⚠️ FAILED ASSIGNMENTS:\n" + "\n".join(fail_details))
+                QMessageBox.warning(self, "Incomplete Schedule", 
+                    f"Timetable generated with {len(result['failed'])} conflicts. See log for details.")
+            else:
+                QMessageBox.information(self, "Success", "Timetable generated successfully!")
             self.btn_view.setVisible(True)
+        else:
+            QMessageBox.critical(self, "Error", msg)
+
+    def save_data(self):
+        pass

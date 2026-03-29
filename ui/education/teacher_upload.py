@@ -1,92 +1,140 @@
-import json
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QTableWidget, QTableWidgetItem, QFileDialog, QMessageBox, QHeaderView
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
+    QSpinBox, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QDialog, QCheckBox, QGridLayout, QFrame
 )
-from db.queries import insert_teacher, delete_all_teachers
-import openpyxl
+from db.queries import get_all_teachers, insert_teacher, delete_all_teachers, get_institution, insert_teacher_unavailability, get_teacher_unavailability
+from PySide6.QtCore import Qt
+import json
+
+class UnavailabilityDialog(QDialog):
+    def __init__(self, teacher_name, days, num_slots, existing_unav):
+        super().__init__()
+        self.setWindowTitle(f"Unavailability: {teacher_name}")
+        self.setMinimumSize(600, 400)
+        layout = QVBoxLayout(self)
+        
+        self.grid_layout = QGridLayout()
+        layout.addLayout(self.grid_layout)
+        
+        self.chks = {} # (day, slot) -> QCheckBox
+        
+        # Headers
+        for d_idx, day in enumerate(days):
+            self.grid_layout.addWidget(QLabel(day), 0, d_idx + 1)
+        
+        for s_idx in range(num_slots):
+            self.grid_layout.addWidget(QLabel(f"Slot {s_idx+1}"), s_idx + 1, 0)
+            for d_idx, day in enumerate(days):
+                chk = QCheckBox()
+                is_unav = any(u['day'] == day and u['slot_index'] == s_idx for u in existing_unav)
+                chk.setChecked(is_unav)
+                self.grid_layout.addWidget(chk, s_idx + 1, d_idx + 1)
+                self.chks[(day, s_idx)] = chk
+                
+        btn_ok = QPushButton("Apply")
+        btn_ok.clicked.connect(self.accept)
+        layout.addWidget(btn_ok)
+
+    def get_unavailability(self):
+        res = []
+        for (day, s_idx), chk in self.chks.items():
+            if chk.isChecked():
+                res.append((day, s_idx))
+        return res
 
 class TeacherUploadScreen(QWidget):
     def __init__(self, wizard_cb):
         super().__init__()
         self.wizard_cb = wizard_cb
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
 
-        title = QLabel("Step 1: Teacher Upload")
+        title = QLabel("Step 3: Add Teachers & Availability")
         title.setObjectName("TitleLabel")
         layout.addWidget(title)
 
-        btn_layout = QHBoxLayout()
-        btn_dl = QPushButton("Download Teacher Template")
-        btn_dl.clicked.connect(self.download_template)
-        btn_up = QPushButton("Upload Teacher Excel")
-        btn_up.clicked.connect(self.upload_excel)
-        btn_layout.addWidget(btn_dl)
-        btn_layout.addWidget(btn_up)
-        btn_layout.addStretch()
-        layout.addLayout(btn_layout)
+        # Table Container
+        tbl_frame = QFrame()
+        tbl_frame.setObjectName("Card")
+        tbl_layout = QVBoxLayout(tbl_frame)
 
-        self.table = QTableWidget(0, 10)
-        self.table.setHorizontalHeaderLabels([
-            "TeacherID", "Name", "Department", "Subjects", 
-            "MaxTeachHoursPerDay", "MaxStayHoursPerDay", 
-            "AvailableFrom", "AvailableTill", "UnavailableDays", "Notes"
-        ])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        layout.addWidget(self.table)
+        self.tbl_teachers = QTableWidget(0, 3)
+        self.tbl_teachers.setHorizontalHeaderLabels(["Teacher Name", "Max Hrs/Week", "Unavailability"])
+        self.tbl_teachers.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tbl_teachers.setMinimumHeight(400)
+        tbl_layout.addWidget(self.tbl_teachers)
 
-        btn_save = QPushButton("Save Changes")
-        btn_save.setObjectName("PrimaryButton")
-        btn_save.clicked.connect(self.save_data)
-        layout.addWidget(btn_save)
+        btn_add = QPushButton("+ Add Teacher")
+        btn_add.setFixedWidth(150)
+        btn_add.clicked.connect(self.add_teacher_row)
+        tbl_layout.addWidget(btn_add)
+        
+        layout.addWidget(tbl_frame)
+        layout.addStretch()
+        self.teacher_unav_data = {} # row_idx -> list of (day, slot)
+        
+        self.load_data()
 
-    def download_template(self):
-        path, _ = QFileDialog.getSaveFileName(self, "Save Template", "saved_tt/Teacher_Template.xlsx", "Excel Files (*.xlsx)")
-        if path:
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            headers = ["TeacherID", "Name", "Department", "Subjects", "MaxTeachHoursPerDay", "MaxStayHoursPerDay", "AvailableFrom", "AvailableTill", "UnavailableDays", "Notes"]
-            ws.append(headers)
-            ws.append(["T001", "Dr. Mehta", "CSE", "AI,ML,Python", 4, 6, "12:00", "18:00", "Saturday", "HOD, only after noon"])
-            wb.save(path)
-            QMessageBox.information(self, "Success", "Template saved successfully.")
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.load_data()
 
-    def upload_excel(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open Teacher Excel", "saved_tt", "Excel Files (*.xlsx)")
-        if path:
-            wb = openpyxl.load_workbook(path)
-            ws = wb.active
-            rows = list(ws.iter_rows(values_only=True))
-            if len(rows) > 1:
-                self.table.setRowCount(0)
-                for r_idx, row in enumerate(rows[1:]):
-                    if not row[1]: continue # Skip if no name
-                    self.table.insertRow(r_idx)
-                    for c_idx, val in enumerate(row):
-                        self.table.setItem(r_idx, c_idx, QTableWidgetItem(str(val) if val is not None else ""))
+    def add_teacher_row(self):
+        row = self.tbl_teachers.rowCount()
+        self.tbl_teachers.insertRow(row)
+        self.tbl_teachers.setItem(row, 0, QTableWidgetItem(f"Teacher {row+1}"))
+        
+        spn = QSpinBox()
+        spn.setRange(1, 100)
+        spn.setValue(20)
+        self.tbl_teachers.setCellWidget(row, 1, spn)
+        
+        btn_unav = QPushButton("Set Slots")
+        btn_unav.clicked.connect(lambda: self.open_unav_dialog(row))
+        self.tbl_teachers.setCellWidget(row, 2, btn_unav)
+
+    def open_unav_dialog(self, row):
+        name = self.tbl_teachers.item(row, 0).text()
+        inst_row = get_institution()
+        if not inst_row: return
+        inst = dict(inst_row)
+        
+        days = [d.strip() for d in inst['working_days'].split(',')]
+        from datetime import datetime
+        start = datetime.strptime(inst['start_time'], "%H:%M")
+        end = datetime.strptime(inst['end_time'], "%H:%M")
+        num_slots = int((end - start).total_seconds() / (60 * inst['slot_duration_mins']))
+        
+        existing = self.teacher_unav_data.get(row, [])
+        
+        dlg = UnavailabilityDialog(name, days, num_slots, existing)
+        if dlg.exec():
+            self.teacher_unav_data[row] = dlg.get_unavailability()
 
     def save_data(self):
         delete_all_teachers()
-        
-        for r in range(self.table.rowCount()):
-            data = {
-                "name": self.table.item(r, 1).text() if self.table.item(r, 1) else "",
-                "department": self.table.item(r, 2).text() if self.table.item(r, 2) else "",
-                "subjects": self.table.item(r, 3).text() if self.table.item(r, 3) else "",
-                "max_teach_hrs": int(self.table.item(r, 4).text() or 5),
-                "max_stay_hrs": int(self.table.item(r, 5).text() or 8),
-                "available_from": self.table.item(r, 6).text() if self.table.item(r, 6) else "",
-                "available_till": self.table.item(r, 7).text() if self.table.item(r, 7) else "",
-                "unavailable_days": self.table.item(r, 8).text() if self.table.item(r, 8) else "",
-                "notes": self.table.item(r, 9).text() if self.table.item(r, 9) else ""
-            }
+        for r in range(self.tbl_teachers.rowCount()):
+            name = self.tbl_teachers.item(r, 0).text()
+            max_hrs = self.tbl_teachers.cellWidget(r, 1).value()
+            t_id = insert_teacher({"name": name, "max_hours_per_week": max_hrs})
             
-            # Very basic parse example
-            constraints = {}
-            if "max 2 consecutive" in data["notes"].lower():
-                constraints["max_consecutive"] = 2
-                
-            data["constraints_json"] = json.dumps(constraints)
-            insert_teacher(data)
+            unav_list = self.teacher_unav_data.get(r, [])
+            for day, s_idx in unav_list:
+                if isinstance(day, tuple): # Robustness check
+                    insert_teacher_unavailability(t_id, day[0], day[1])
+                else:
+                    insert_teacher_unavailability(t_id, day, s_idx)
+
+    def load_data(self):
+        teachers = get_all_teachers()
+        self.tbl_teachers.setRowCount(0)
+        self.teacher_unav_data = {}
+        for idx, t in enumerate(teachers):
+            self.add_teacher_row()
+            r = self.tbl_teachers.rowCount() - 1
+            self.tbl_teachers.item(r, 0).setText(t['name'])
+            self.tbl_teachers.cellWidget(r, 1).setValue(t['max_hours_per_week'])
             
-        QMessageBox.information(self, "Saved", "Teacher data saved to database.")
+            unavs = get_teacher_unavailability(t['id'])
+            self.teacher_unav_data[r] = [{'day': u['day'], 'slot_index': u['slot_index']} for u in unavs]

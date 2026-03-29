@@ -1,139 +1,122 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QCheckBox, QSpinBox, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog, QMessageBox
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
+    QSpinBox, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QFrame
 )
-from PySide6.QtGui import QColor
-import openpyxl
+import db.queries as queries
 
 class SubjectSetupScreen(QWidget):
     def __init__(self, wizard_cb):
         super().__init__()
         self.wizard_cb = wizard_cb
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
 
-        title = QLabel("Step 4: Subject Setup")
+        title = QLabel("Step 4: Add Subjects")
         title.setObjectName("TitleLabel")
         layout.addWidget(title)
 
-        # Excel Buttons for Subjects
-        sub_btn_layout = QHBoxLayout()
-        btn_dl_sub = QPushButton("Download Subject Template")
-        btn_dl_sub.clicked.connect(self.download_subject_template)
-        btn_up_sub = QPushButton("Upload Subject Excel")
-        btn_up_sub.clicked.connect(self.upload_subject_excel)
-        sub_btn_layout.addWidget(btn_dl_sub)
-        sub_btn_layout.addWidget(btn_up_sub)
-        sub_btn_layout.addStretch()
-        layout.addLayout(sub_btn_layout)
+        # Table Container
+        tbl_frame = QFrame()
+        tbl_frame.setObjectName("Card")
+        tbl_layout = QVBoxLayout(tbl_frame)
 
-        # Part A
-        layout.addWidget(QLabel("Subject Definition"))
         self.tbl_subjects = QTableWidget(0, 7)
         self.tbl_subjects.setHorizontalHeaderLabels([
-            "Code", "Name", "Hours/Week", "Is Lab", "Lab Slots", "Special Room", "Assigned Groups"
+            "Code", "Name", "Type", "Hrs/Week", "Teacher", "Room Type", "Lab Details"
         ])
         self.tbl_subjects.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        layout.addWidget(self.tbl_subjects)
+        self.tbl_subjects.setMinimumHeight(400)
+        tbl_layout.addWidget(self.tbl_subjects)
 
-        btn_add_sub = QPushButton("Add Subject Row")
-        btn_add_sub.clicked.connect(self.add_sub_row)
-        layout.addWidget(btn_add_sub)
-
-        # Part D (Room Setup)
-        layout.addSpacing(20)
-        room_header = QHBoxLayout()
-        room_header.addWidget(QLabel("Room Setup"))
-        btn_up_room = QPushButton("Upload Rooms Excel")
-        btn_up_room.clicked.connect(self.upload_rooms_excel)
-        room_header.addWidget(btn_up_room)
-        room_header.addStretch()
-        layout.addLayout(room_header)
-
-        self.tbl_rooms = QTableWidget(0, 4)
-        self.tbl_rooms.setHorizontalHeaderLabels(["Room ID", "Room Name", "Type", "Capacity"])
-        self.tbl_rooms.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        layout.addWidget(self.tbl_rooms)
-
-        btn_add_room = QPushButton("Add Room Row")
-        btn_add_room.clicked.connect(lambda: self.tbl_rooms.insertRow(self.tbl_rooms.rowCount()))
-        layout.addWidget(btn_add_room)
-
-    def download_subject_template(self):
-        path, _ = QFileDialog.getSaveFileName(self, "Save Template", "saved_tt/Subject_Template.xlsx", "Excel Files (*.xlsx)")
-        if path:
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            headers = ["Code", "SubjectName", "HoursPerWeek", "IsLab", "LabDurationSlots", "RequiresSpecialRoom", "RoomType", "AssignedGroups"]
-            ws.append(headers)
-            ws.append(["AI201", "Machine Learning", 4, "No", 1, "No", "Classroom", "AI/ML"])
-            ws.append(["AI203", "Deep Learning Lab", 2, "Yes", 3, "Yes", "AI Lab", "AI/ML"])
-            wb.save(path)
-            QMessageBox.information(self, "Success", "Template saved successfully.")
-
-    def upload_subject_excel(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open Subject Excel", "saved_tt", "Excel Files (*.xlsx)")
-        if path:
-            wb = openpyxl.load_workbook(path)
-            ws = wb.active
-            rows = list(ws.iter_rows(values_only=True))
-            count = 0
-            if len(rows) > 1:
-                for row in rows[1:]:
-                    if not row[0]: continue
-                    r = self.tbl_subjects.rowCount()
-                    self.tbl_subjects.insertRow(r)
-                    
-                    self.tbl_subjects.setItem(r, 0, QTableWidgetItem(str(row[0])))
-                    self.tbl_subjects.setItem(r, 1, QTableWidgetItem(str(row[1])))
-                    self.tbl_subjects.setItem(r, 2, QTableWidgetItem(str(row[2])))
-                    
-                    chk_lab = QCheckBox()
-                    chk_lab.setChecked(str(row[3]).lower() in ["yes", "true", "1"])
-                    self.tbl_subjects.setCellWidget(r, 3, chk_lab)
-                    
-                    spn_lab = QSpinBox()
-                    spn_lab.setValue(int(row[4] or 1))
-                    self.tbl_subjects.setCellWidget(r, 4, spn_lab)
-                    
-                    chk_spec = QCheckBox()
-                    chk_spec.setChecked(str(row[5]).lower() in ["yes", "true", "1"])
-                    self.tbl_subjects.setCellWidget(r, 5, chk_spec)
-                    
-                    self.tbl_subjects.setItem(r, 6, QTableWidgetItem(str(row[7])))
-                    count += 1
-            QMessageBox.information(self, "Success", f"{count} subjects loaded from Excel.")
-
-    def upload_rooms_excel(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open Rooms Excel", "saved_tt", "Excel Files (*.xlsx)")
-        if path:
-            wb = openpyxl.load_workbook(path)
-            ws = wb.active
-            rows = list(ws.iter_rows(values_only=True))
-            count = 0
-            if len(rows) > 1:
-                for row in rows[1:]:
-                    if not row[0]: continue
-                    r = self.tbl_rooms.rowCount()
-                    self.tbl_rooms.insertRow(r)
-                    for c_idx, val in enumerate(row[:4]):
-                        self.tbl_rooms.setItem(r, c_idx, QTableWidgetItem(str(val) if val is not None else ""))
-                    count += 1
-            QMessageBox.information(self, "Success", f"{count} rooms loaded from Excel.")
-
-    def add_sub_row(self):
-        r = self.tbl_subjects.rowCount()
-        self.tbl_subjects.insertRow(r)
+        btn_add = QPushButton("+ Add Subject")
+        btn_add.setFixedWidth(150)
+        btn_add.clicked.connect(self.add_subject_row)
+        tbl_layout.addWidget(btn_add)
         
-        chk_lab = QCheckBox()
-        self.tbl_subjects.setCellWidget(r, 3, chk_lab)
+        layout.addWidget(tbl_frame)
+        layout.addStretch()
+        self.load_data()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.load_data()
+
+    def add_subject_row(self, teacher_list=None):
+        row = self.tbl_subjects.rowCount()
+        self.tbl_subjects.insertRow(row)
         
-        spn_lab = QSpinBox()
-        spn_lab.setRange(1, 3)
-        spn_lab.setValue(1)
-        self.tbl_subjects.setCellWidget(r, 4, spn_lab)
+        self.tbl_subjects.setItem(row, 0, QTableWidgetItem("TCS 401"))
+        self.tbl_subjects.setItem(row, 1, QTableWidgetItem("New Subject"))
         
-        chk_spec = QCheckBox()
-        self.tbl_subjects.setCellWidget(r, 5, chk_spec)
+        cmb_type = QComboBox()
+        cmb_type.addItems(["Theory", "Lab", "Elective"])
+        self.tbl_subjects.setCellWidget(row, 2, cmb_type)
+        
+        spn_hrs = QSpinBox()
+        spn_hrs.setRange(1, 40)
+        spn_hrs.setValue(3)
+        self.tbl_subjects.setCellWidget(row, 3, spn_hrs)
+        
+        # Teacher Dropdown (Required)
+        cmb_teacher = QComboBox()
+        if teacher_list is None:
+            teacher_list = queries.get_all_teachers()
+        
+        for t in teacher_list:
+            cmb_teacher.addItem(t['name'], t['id'])
+        self.tbl_subjects.setCellWidget(row, 4, cmb_teacher)
+        
+        cmb_room = QComboBox()
+        cmb_room.addItems(["Classroom", "Lab", "Lecture Hall", "Special Venue"])
+        self.tbl_subjects.setCellWidget(row, 5, cmb_room)
+        
+        self.tbl_subjects.setItem(row, 6, QTableWidgetItem("Dur: 1, Split: 0"))
 
     def save_data(self):
-        pass
+        queries.delete_all_subjects()
+        for r in range(self.tbl_subjects.rowCount()):
+            t_id = self.tbl_subjects.cellWidget(r, 4).currentData()
+            if not t_id:  # Ensure teacher is always assigned
+                t_id = self.tbl_subjects.cellWidget(r, 4).itemData(0) if self.tbl_subjects.cellWidget(r, 4).count() > 0 else 1
+            data = {
+                "code": self.tbl_subjects.item(r, 0).text(),
+                "name": self.tbl_subjects.item(r, 1).text(),
+                "type": self.tbl_subjects.cellWidget(r, 2).currentText(),
+                "hours_per_week": self.tbl_subjects.cellWidget(r, 3).value(),
+                "teacher_id": int(t_id),
+                "room_type_req": self.tbl_subjects.cellWidget(r, 5).currentText(),
+                "lab_duration": 1,
+                "split_groups": 0
+            }
+            details = self.tbl_subjects.item(r, 6).text()
+            if "Dur: 2" in details: data["lab_duration"] = 2
+            if "Split: 1" in details: data["split_groups"] = 1
+            
+            queries.insert_subject(data)
+
+    def load_data(self):
+        teachers = queries.get_all_teachers()
+        subjects = queries.get_all_subjects()
+        self.tbl_subjects.setRowCount(0)
+        for s in subjects:
+            self.add_subject_row(teachers)
+            r = self.tbl_subjects.rowCount() - 1
+            self.tbl_subjects.item(r, 0).setText(s['code'])
+            self.tbl_subjects.item(r, 1).setText(s['name'])
+            self.tbl_subjects.cellWidget(r, 2).setCurrentText(s['type'])
+            self.tbl_subjects.cellWidget(r, 3).setValue(s['hours_per_week'])
+            
+            cmb_t = self.tbl_subjects.cellWidget(r, 4)
+            target_id = int(s['teacher_id']) if s['teacher_id'] else None
+            if target_id:
+                idx = cmb_t.findData(target_id)
+                if idx >= 0: 
+                    cmb_t.setCurrentIndex(idx)
+                else:
+                    cmb_t.setCurrentIndex(0)  # Default to first teacher if not found
+            else:
+                cmb_t.setCurrentIndex(0)  # Default to first teacher if not assigned
+            
+            self.tbl_subjects.cellWidget(r, 5).setCurrentText(s['room_type_req'])
+            self.tbl_subjects.item(r, 6).setText(f"Dur: {s['lab_duration']}, Split: {s['split_groups']}")

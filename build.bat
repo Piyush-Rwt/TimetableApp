@@ -28,7 +28,8 @@ copy version.json dist\ScheduleForge\
 
 :: Create Zip archive using PowerShell
 echo Creating zip archive...
-powershell -Command "Compress-Archive -Path 'dist\ScheduleForge\*' -DestinationPath 'ScheduleForge_v1.0.zip' -Force"
+if not exist releases mkdir releases
+powershell -Command "Compress-Archive -Path 'dist\ScheduleForge\*' -DestinationPath 'releases\ScheduleForge_v1.0.zip' -Force"
 
 echo Build complete!
 pause

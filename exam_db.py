@@ -1,11 +1,18 @@
 import sqlite3
 import os
+import sys
 
-DB_PATH = "saved_tt/exams.db"
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+DB_PATH = os.path.join(BASE_DIR, "saved_tt", "exams.db")
 
 def init_db():
-    if not os.path.exists("saved_tt"):
-        os.makedirs("saved_tt")
+    save_dir = os.path.join(BASE_DIR, "saved_tt")
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
