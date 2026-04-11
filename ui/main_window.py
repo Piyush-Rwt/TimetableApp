@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QFrame, QScrollArea
 )
 from db.schema import init_db
-from ui.styles import DARK_THEME
+from ui.styles import LIGHT_THEME
 from ui.dashboard import DashboardScreen
 from ui.mode_selector import ModeSelectorScreen
 from ui.personal_mode import PersonalModeScreen
@@ -148,7 +148,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("ScheduleForge - Production Edition")
         self.setMinimumSize(1280, 800)
-        self.setStyleSheet(DARK_THEME)
+        self.setStyleSheet(LIGHT_THEME)
 
         init_db()
 

@@ -72,34 +72,11 @@ DARK_THEME = """
         font-size: 14px;
     }
 
-    QSpinBox::up-button, QTimeEdit::up-button {
-        subcontrol-origin: padding;
-        subcontrol-position: top right;
-        width: 20px;
-        border-left: 1px solid #3b4054;
-        background-color: #2a2d3e;
-    }
-
-    QSpinBox::down-button, QTimeEdit::down-button {
-        subcontrol-origin: padding;
-        subcontrol-position: bottom right;
-        width: 20px;
-        border-left: 1px solid #3b4054;
-        border-top: 1px solid #3b4054;
-        background-color: #2a2d3e;
-    }
-
-    QSpinBox::up-arrow, QTimeEdit::up-arrow {
-        width: 7px;
-        height: 7px;
-        background-color: #ffffff;
-        /* Using a small square as a reliable fallback for arrows */
-    }
-
-    QSpinBox::down-arrow, QTimeEdit::down-arrow {
-        width: 7px;
-        height: 7px;
-        background-color: #ffffff;
+    QSpinBox::up-button, QSpinBox::down-button,
+    QTimeEdit::up-button, QTimeEdit::down-button {
+        width: 16px;
+        border: none;
+        background: transparent;
     }
 
     QSpinBox::up-button:hover, QSpinBox::down-button:hover {
@@ -298,33 +275,11 @@ LIGHT_THEME = """
         font-size: 14px;
     }
 
-    QSpinBox::up-button, QTimeEdit::up-button {
-        subcontrol-origin: padding;
-        subcontrol-position: top right;
-        width: 20px;
-        border-left: 1px solid #dcdde1;
-        background-color: #f1f2f6;
-    }
-
-    QSpinBox::down-button, QTimeEdit::down-button {
-        subcontrol-origin: padding;
-        subcontrol-position: bottom right;
-        width: 20px;
-        border-left: 1px solid #dcdde1;
-        border-top: 1px solid #dcdde1;
-        background-color: #f1f2f6;
-    }
-
-    QSpinBox::up-arrow, QTimeEdit::up-arrow {
-        width: 7px;
-        height: 7px;
-        background-color: #2f3640;
-    }
-
-    QSpinBox::down-arrow, QTimeEdit::down-arrow {
-        width: 7px;
-        height: 7px;
-        background-color: #2f3640;
+    QSpinBox::up-button, QSpinBox::down-button,
+    QTimeEdit::up-button, QTimeEdit::down-button {
+        width: 16px;
+        border: none;
+        background: transparent;
     }
 
     QSpinBox::up-button:hover, QSpinBox::down-button:hover {

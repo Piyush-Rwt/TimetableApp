@@ -36,8 +36,27 @@ class GenerationThread(QThread):
             self.progress.emit(30, "Initializing solver engine...")
             solver = ConstraintSolver(inst, breaks, sections, teachers, unav, subjects, elective_opts, rooms)
             
-            self.progress.emit(50, "Running constraint satisfaction solver...")
-            result = solver.solve()
+            self.progress.emit(40, "Generating base timetable (CSP)...")
+            # We bypass solve() to get manual progress reporting
+            import time
+            start_time = time.time()
+            res = solver.run_iteration()
+            
+            if res['success']:
+                self.progress.emit(70, "Optimizing timetable quality (Simulated Annealing)...")
+                initial_score = solver.calculate_total_score(res['assignment'])
+                optimized_assignment = solver.optimize(res['assignment'], total_time_limit=2.0)
+                res['assignment'] = optimized_assignment
+                res['grid'] = solver.section_grid
+                final_score = solver.calculate_total_score(optimized_assignment)
+                res['initial_score'] = initial_score
+                res['final_score'] = final_score
+            else:
+                res['initial_score'] = 0
+                res['final_score'] = 0
+                
+            res['time_taken'] = time.time() - start_time
+            result = res
             
             if not result['success']:
                 self.progress.emit(70, f"Warning: {len(result['failed'])} subjects could not be scheduled.")
@@ -147,8 +166,30 @@ class GenerateScreen(QWidget):
 
     def generation_finished(self, success, msg, result):
         self.btn_gen.setEnabled(True)
+        self.btn_gen.setText("🔄 Regenerate")
         self.log_txt.append(msg)
         if success:
+            if result['success']:
+                time_taken = result.get('time_taken', 0)
+                initial_score = result.get('initial_score', 0)
+                final_score = result.get('final_score', 0)
+                improvement = 0
+                if initial_score > 0:
+                    improvement = ((final_score - initial_score) / initial_score) * 100
+
+                summary = (
+                    f"\n"
+                    f"✨ Generation Summary:\n"
+                    f"----------------------------\n"
+                    f"⏱️ Time Taken: {time_taken:.1f}s\n"
+                    f"📊 Initial Score: {initial_score}\n"
+                    f"🏆 Final Score: {final_score}\n"
+                    f"📈 Improvement: +{improvement:.1f}%\n"
+                    f"----------------------------\n"
+                )
+                self.log_txt.append(summary)
+                QMessageBox.information(self, "Success", "Timetable generated and optimized successfully!")
+            
             if not result['success']:
                 fail_details = []
                 for f in result['failed']:
@@ -158,8 +199,7 @@ class GenerateScreen(QWidget):
                 self.log_txt.append("\n⚠️ FAILED ASSIGNMENTS:\n" + "\n".join(fail_details))
                 QMessageBox.warning(self, "Incomplete Schedule", 
                     f"Timetable generated with {len(result['failed'])} conflicts. See log for details.")
-            else:
-                QMessageBox.information(self, "Success", "Timetable generated successfully!")
+            
             self.btn_view.setVisible(True)
         else:
             QMessageBox.critical(self, "Error", msg)

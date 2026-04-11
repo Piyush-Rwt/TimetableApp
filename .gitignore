@@ -8,5 +8,10 @@ dist/
 build/
 *.spec
 .DS_Store
-Thumbs.dbScheduleForge_v1.0.zip 
-releases/ 
+Thumbs.db
+*.zip
+releases/
+*.db
+!saved_tt/exams.db
+!saved_tt/timetable_forge.db
+!saved_tt/timetables.db

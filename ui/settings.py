@@ -1,10 +1,9 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QGroupBox, QRadioButton, QLineEdit, QFileDialog
+    QGroupBox, QLineEdit, QFileDialog
 )
 from PySide6.QtCore import Qt
 import os
-from ui.styles import DARK_THEME, LIGHT_THEME
 
 class SettingsScreen(QWidget):
     def __init__(self, switch_cb):
@@ -25,24 +24,7 @@ class SettingsScreen(QWidget):
         title.setObjectName("TitleLabel")
         layout.addWidget(title)
 
-        # 1. Theme Toggle
-        theme_group = QGroupBox("Appearance")
-        theme_layout = QVBoxLayout()
-        self.radio_dark = QRadioButton("Dark Mode")
-        self.radio_light = QRadioButton("Light Mode")
-        
-        # Default to dark
-        self.radio_dark.setChecked(True)
-        
-        self.radio_dark.toggled.connect(self.toggle_theme)
-        self.radio_light.toggled.connect(self.toggle_theme)
-        
-        theme_layout.addWidget(self.radio_dark)
-        theme_layout.addWidget(self.radio_light)
-        theme_group.setLayout(theme_layout)
-        layout.addWidget(theme_group)
-
-        # 2. App Version
+        # 1. App Version
         version_group = QGroupBox("System Information")
         version_layout = QVBoxLayout()
         version_layout.addWidget(QLabel("App Version: 1.0.0"))
@@ -71,13 +53,6 @@ class SettingsScreen(QWidget):
         layout.addWidget(export_group)
 
         layout.addStretch()
-
-    def toggle_theme(self):
-        main_win = self.window()
-        if self.radio_dark.isChecked():
-            main_win.setStyleSheet(DARK_THEME)
-        else:
-            main_win.setStyleSheet(LIGHT_THEME)
 
     def check_updates(self):
         from main import check_for_updates
