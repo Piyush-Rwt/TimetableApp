@@ -1,3 +1,19 @@
+"""
+Personal Mode Screen - personal_mode.py
+Simple scheduling interface for individual users to plan personal events and meetings.
+
+Features:
+- Add personal events/tasks
+- Set event times and durations
+- Simple calendar view
+- No complex constraints
+
+Use Cases:
+- Personal schedule planning
+- Meeting scheduling
+- Personal time management
+"""
+
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QLineEdit, QSpinBox, QTimeEdit, QTableWidget, QTableWidgetItem, QComboBox, QHeaderView
 from PySide6.QtCore import Qt, QTime
 

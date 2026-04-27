@@ -1,3 +1,16 @@
+"""
+Settings Screen - settings.py
+Application preferences and configuration interface.
+
+Features:
+- Application theme selection
+- Export/import settings
+- Database path configuration
+- User preferences
+
+Settings are persisted and loaded on application startup.
+"""
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
     QGroupBox, QLineEdit, QFileDialog

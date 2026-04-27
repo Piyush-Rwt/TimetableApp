@@ -1,3 +1,20 @@
+"""
+Institution Setup Screen - institution_setup.py
+Step 1 of the Education Wizard: Configure school/university details.
+
+Configures:
+- Institution name
+- Department
+- Semester
+- Working days (Monday-Saturday)
+- Working hours (start and end times)
+- Slot duration (typically 50-55 minutes)
+- Break periods (lunch, short breaks)
+
+This information forms the backbone of the schedule - all classes are scheduled
+within these working hours and days, avoiding configured breaks.
+"""
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QCheckBox, QTimeEdit, QSpinBox, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QFrame

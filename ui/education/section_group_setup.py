@@ -1,3 +1,21 @@
+"""
+Section/Group Setup Screen - section_group_setup.py
+Step 2 of the Education Wizard: Define student sections/classes.
+
+Features:
+- Add student sections (divisions/classes like A1, A2, B1, etc.)
+- Set student count for each section
+- Manage section list with add/remove/edit
+
+A section represents a group of students who take classes together.
+Each section needs its own timetable to ensure all students can attend scheduled classes.
+
+Example Sections:
+- CSE A (Computer Science branch A, 60 students)
+- CSE B (Computer Science branch B, 60 students)
+- ECE A (Electronics branch A, 55 students)
+"""
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QSpinBox, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QFrame

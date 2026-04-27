@@ -1,3 +1,24 @@
+"""
+Database Schema - schema.py
+Defines the SQLite database structure for storing timetable scheduling data.
+
+Tables:
+1. institutions: School/university configuration (working days, time slots)
+2. breaks: Break periods (lunch, short break, etc.)
+3. sections: Student divisions/classes
+4. teachers: Staff members teaching classes
+5. teacher_unavailability: Slots when teachers are unavailable
+6. subjects: Courses/classes to be scheduled
+7. rooms: Physical spaces (classrooms, labs)
+8. timetable_slots: Final generated schedule assignments
+
+Database Location: saved_tt/timetable_forge.db
+
+Functions:
+- init_db(): Create/initialize database with all tables
+- clear_all_data(): Reset database (delete all records but keep schema)
+"""
+
 import sqlite3
 import os
 import sys
@@ -10,6 +31,13 @@ else:
 DEFAULT_DB_PATH = os.path.join(BASE_DIR, "saved_tt", "timetable_forge.db")
 
 def init_db(db_path=DEFAULT_DB_PATH):
+    """
+    Initialize SQLite database with schema.
+    Creates all required tables if they don't already exist.
+    
+    Args:
+        db_path: Path where database file will be created (default: saved_tt/timetable_forge.db)
+    """
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     
     conn = sqlite3.connect(db_path)

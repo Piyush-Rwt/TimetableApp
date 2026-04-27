@@ -1,9 +1,41 @@
+"""
+Constraint Satisfaction Problem (CSP) Framework - csp.py
+Provides the core CSP data structures and solver algorithms for timetable generation.
+
+Components:
+1. Variable: Represents a scheduling unit (e.g., a class session to schedule)
+2. Constraint: Base class for all scheduling constraints
+3. CSP: Main solver class that uses backtracking with constraint checking
+
+The CSP solver tries to assign each variable (class/subject) to a domain value (time slot)
+while satisfying all constraints (no conflicts, no resource double-booking, etc.).
+
+Algorithm:
+- Backtracking search with constraint propagation
+- Variable ordering heuristics (select most constrained variable first)
+- Domain value ordering heuristics (choose least constraining values)
+"""
+
 from dataclasses import dataclass
 from typing import List, Dict, Tuple, Any, Callable
 import random
 
 @dataclass
 class Variable:
+    """
+    Represents a single scheduling variable (class session to schedule).
+    
+    Attributes:
+        id: Unique identifier for this variable
+        section_id: Which student section this class is for
+        section_name: Name of the section (e.g., "A1")
+        subject: Subject/course details
+        teacher_id: Teacher ID assigned to teach this
+        duration: How many consecutive slots needed (1 for normal, 2+ for labs)
+        student_count: Number of students in this class
+        group: Group identifier for grouped classes
+        difficulty: How hard it is to schedule (1-5, higher = harder)
+    """
     id: str
     section_id: int
     section_name: str

@@ -1,3 +1,33 @@
+"""
+Slot Scoring Algorithm - slot_scorer.py
+Evaluates quality of time slot assignments based on soft constraints (preferences).
+Lower scores are better. Used to break ties when multiple slots are valid.
+
+Soft Constraints (optimization goals):
+1. Distribute subjects: Don't put same subject twice on same day
+2. Avoid teacher gaps: Place classes adjacent to existing teacher classes
+3. Lab timing: Place lab classes in morning or afternoon blocks
+4. Subject spacing: Don't schedule same subject on consecutive days
+5. Room efficiency: Use rooms efficiently throughout the week
+
+Scoring is a heuristic to improve schedule quality without violating hard constraints.
+"""
+
+"""
+Slot Scoring Algorithm - slot_scorer.py
+Evaluates quality of time slot assignments based on soft constraints (preferences).
+Lower scores are better. Used to break ties when multiple slots are valid.
+
+Soft Constraints (optimization goals):
+1. Distribute subjects: Don't put same subject twice on same day
+2. Avoid teacher gaps: Place classes adjacent to existing teacher classes
+3. Lab timing: Place lab classes in morning or afternoon blocks
+4. Subject spacing: Don't schedule same subject on consecutive days
+5. Room efficiency: Use rooms efficiently throughout the week
+
+Scoring is a heuristic to improve schedule quality without violating hard constraints.
+"""
+
 def score_slot(slot_idx, day, section_id, assignment, teacher_busy, room_busy, section_grid, days_list):
     """
     Scores a (day, slot) for a given assignment.
@@ -6,6 +36,32 @@ def score_slot(slot_idx, day, section_id, assignment, teacher_busy, room_busy, s
     - Avoid teacher gaps (+15 if adjacent to existing class)
     - Labs preferably in morning or afternoon block (+10)
     - Same subject not on consecutive days (+10)
+    
+    Args:
+        slot_idx: Which time slot to evaluate
+        day: Which day (Monday, Tuesday, etc.)
+        section_id: Which student section
+        assignment: The class assignment being considered
+        teacher_busy: 3D grid of teacher availability
+        room_busy: 3D grid of room availability
+        section_grid: Current section schedule grid
+        days_list: List of all working days
+    
+    Returns:
+        Score (lower is better). Returns high score (poor) if slot has conflicts.
+    
+    Args:
+        slot_idx: Which time slot to evaluate
+        day: Which day (Monday, Tuesday, etc.)
+        section_id: Which student section
+        assignment: The class assignment being considered
+        teacher_busy: 3D grid of teacher availability
+        room_busy: 3D grid of room availability
+        section_grid: Current section schedule grid
+        days_list: List of all working days
+    
+    Returns:
+        Score (lower is better). Returns high score (poor) if slot has conflicts.
     """
     score = 100 # Base score
     subject = assignment['subject']

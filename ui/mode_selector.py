@@ -1,3 +1,24 @@
+"""
+Mode Selector Screen - mode_selector.py
+Provides the initial choice of scheduling modes when user opens the application.
+
+Available Modes:
+1. Education Mode: For schools and universities
+   - Multi-section scheduling
+   - Teacher-subject-room constraints
+   - Complex timetable generation (7-step wizard)
+
+2. Personal Mode: For individuals
+   - Simple personal event scheduling
+   - Calendar-based planning
+   - Limited constraints
+
+3. Business Mode: For organizations
+   - Staff shift scheduling
+   - Employee availability
+   - Role-based assignments
+"""
+
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QDialog
 from PySide6.QtCore import Qt
 

@@ -1,3 +1,28 @@
+"""
+Constraint Setup Screen - constraint_setup.py
+Step 4/5 of the Education Wizard: Add rooms and configure constraints.
+
+Features:
+- Add physical spaces (classrooms, labs, lecture halls)
+- Set room type (Classroom or Lab)
+- Set room capacity
+- Configure teacher maximum hours per week
+- Set teacher unavailable time slots
+
+Rooms:
+- Classrooms: For theory classes (capacity 40-100)
+- Labs: For practical classes (capacity 20-50)
+- Lecture Theatres: For large lectures (capacity 100+)
+
+Teacher Constraints:
+- Maximum hours per week (e.g., 24 hours)
+- Unavailable slots: Days/times when teacher can't teach
+  (e.g., Mr. Brown unavailable Monday 9:00-10:00)
+
+These constraints ensure the generated schedule respects resource limitations
+and teacher preferences.
+"""
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QSpinBox, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QFrame

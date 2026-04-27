@@ -1,3 +1,17 @@
+"""
+Database Query Handler - queries.py
+This module manages all database operations for the timetable scheduling system.
+It provides functions to:
+- Configure institutions (name, working days, time slots)
+- Manage sections (classes/divisions of students)
+- Manage teachers (names, max weekly hours, unavailability)
+- Manage rooms (classrooms and labs with capacities)
+- Manage subjects (courses assigned to teachers)
+- Execute scheduling algorithms and store results
+
+Database: SQLite (saved_tt/timetable_forge.db)
+"""
+
 import os
 import sys
 import sqlite3
@@ -11,11 +25,24 @@ else:
 DB_PATH = os.path.join(BASE_DIR, "saved_tt", "timetable_forge.db")
 
 def get_connection():
+    """Establish and return a connection to the SQLite database."""
     return sqlite3.connect(DB_PATH)
 
 def execute_query(query, params=(), fetch_all=True):
+    """
+    Execute a SQL query (SELECT, INSERT, UPDATE, DELETE).
+    
+    Args:
+        query: SQL query string
+        params: Tuple of parameters for parameterized query (prevents SQL injection)
+        fetch_all: If True, fetch all rows for SELECT; if False, fetch one row
+    
+    Returns:
+        For SELECT: List of dicts (if fetch_all=True) or single dict (if fetch_all=False)
+        For INSERT/UPDATE/DELETE: Last inserted row ID
+    """
     conn = get_connection()
-    conn.row_factory = sqlite3.Row
+    conn.row_factory = sqlite3.Row  # Return results as Row objects (behave like dicts)
     c = conn.cursor()
     c.execute(query, params)
     if query.strip().upper().startswith("SELECT"):
@@ -25,25 +52,40 @@ def execute_query(query, params=(), fetch_all=True):
             row = c.fetchone()
             res = dict(row) if row else None
     else:
-        conn.commit()
+        conn.commit()  # Save changes to database
         res = c.lastrowid
     conn.close()
     return res
 
 # --- 1. Institution Setup ---
 def get_institution(institution_id=1):
+    """Get institution configuration (name, working days, time slots, etc.)."""
     return execute_query("SELECT * FROM institutions WHERE id = ?", (institution_id,), fetch_all=False)
 
 def update_institution(data, institution_id=1):
+    """
+    Update or create institution configuration.
+    
+    Args:
+        data: Dict with keys: name, department, semester, working_days, start_time, end_time, slot_duration_mins
+              Example: {"name": "Tech University", "working_days": "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday", ...}
+    """
     execute_query('''
         INSERT OR REPLACE INTO institutions (id, name, department, semester, working_days, start_time, end_time, slot_duration_mins)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''', (institution_id, data.get("name"), data.get("department"), data.get("semester"), data.get("working_days"), data.get("start_time"), data.get("end_time"), data.get("slot_duration_mins")))
 
 def get_breaks(institution_id=1):
+    """Get all breaks (lunch, short break, etc.) for the institution."""
     return execute_query("SELECT * FROM breaks WHERE institution_id = ?", (institution_id,))
 
 def insert_break(data, institution_id=1):
+    """
+    Insert a break period.
+    
+    Args:
+        data: Dict with keys: name (e.g., "Lunch Break"), start_time (e.g., "13:00"), end_time (e.g., "14:00")
+    """
     execute_query("INSERT INTO breaks (institution_id, name, start_time, end_time) VALUES (?, ?, ?, ?)", 
                   (institution_id, data.get("name"), data.get("start_time"), data.get("end_time")))
 

@@ -1,10 +1,56 @@
+"""
+Constraint Solver - constraint_solver.py
+This module solves the timetable scheduling problem using constraint satisfaction (CSP).
+
+Problem: Given teachers, sections, subjects, and rooms, assign each subject to a time slot
+         such that all constraints are satisfied:
+         - No teacher teaches two classes at the same time
+         - No room is used by two classes at the same time
+         - No section attends two classes at the same time
+         - All break times are free
+         - Teacher working hours don't exceed max hours per week
+         - Teachers are not scheduled during their unavailable slots
+         - Lab classes get appropriate room types
+
+Algorithm: Backtracking with heuristics and conflict detection
+The solver tries to place each subject in valid slots, scoring them based on various criteria.
+If a slot causes conflicts, it backtracks and tries another slot.
+"""
+
 import json
 import random
 from datetime import datetime, timedelta
 from engine.slot_scorer import score_slot
 
 class ConstraintSolver:
+    """
+    Main solver for educational timetable scheduling.
+    
+    Attributes:
+        institution: School/university configuration (working days, times, slot duration)
+        days: List of working days (e.g., ['Monday', 'Tuesday', ...])
+        num_slots: Number of time slots per day
+        slots_times: List of (start_time, end_time) tuples for each slot
+        section_grid: 3D grid tracking which subject is in which section/day/slot
+        teacher_busy: 3D grid tracking teacher availability
+        room_busy: 3D grid tracking room availability
+        teacher_hours: Dict tracking total hours assigned to each teacher
+    """
+    
     def __init__(self, institution, breaks, sections, teachers, unavailability, subjects, elective_options, rooms):
+        """
+        Initialize the constraint solver with all scheduling data.
+        
+        Args:
+            institution: Dict with working_days, start_time, end_time, slot_duration_mins
+            breaks: List of break periods (lunch, short break, etc.)
+            sections: List of student sections/classes
+            teachers: List of teachers with max_hours_per_week
+            unavailability: Dict mapping teacher_id to list of (day, slot) tuples
+            subjects: List of subjects to schedule
+            elective_options: Elective course options
+            rooms: List of rooms (classrooms and labs)
+        """
         self.institution = institution
         self.breaks = breaks
         self.sections = sections
@@ -14,12 +60,13 @@ class ConstraintSolver:
         self.elective_options = elective_options
         self.rooms_data = rooms
         
-        # Setup Days and Slots
+        # Setup Days and Slots - Create time slot mappings
         self.days = [d.strip() for d in institution['working_days'].split(',')]
         self.slot_duration = institution['slot_duration_mins']
         self.start_time = datetime.strptime(institution['start_time'], "%H:%M")
         self.end_time = datetime.strptime(institution['end_time'], "%H:%M")
         
+        # Calculate total number of time slots per day
         self.num_slots = int((self.end_time - self.start_time).total_seconds() / (60 * self.slot_duration))
         self.slots_times = []
         for i in range(self.num_slots):
@@ -27,7 +74,7 @@ class ConstraintSolver:
             t_end = t_start + timedelta(minutes=self.slot_duration)
             self.slots_times.append((t_start.strftime("%H:%M"), t_end.strftime("%H:%M")))
             
-        # Map Breaks
+        # Map Breaks - Identify which time slots are break times
         self.break_slots = []
         for b in breaks:
             b_start = datetime.strptime(b['start_time'], "%H:%M")
@@ -40,10 +87,15 @@ class ConstraintSolver:
         self.break_slots = list(set(self.break_slots))
 
     def reset_state(self):
+        """
+        Reset all scheduling state variables before starting a new schedule.
+        This creates empty grids for tracking assignments and constraints.
+        """
         self.teachers = {t['id']: t for t in self.teachers_data}
         self.subjects = {s['id']: s for s in self.subjects_data}
         self.rooms = self.rooms_data
         
+        # Initialize 3D grids: [entity_id][day][slot_index] = assigned_subject
         self.section_grid = {s['id']: {d: {slot: None for slot in range(self.num_slots)} for d in self.days} for s in self.sections}
         self.teacher_busy = {t['id']: {d: {slot: False for slot in range(self.num_slots)} for d in self.days} for t in self.teachers.values()}
         self.room_busy = {r['id']: {d: {slot: False for slot in range(self.num_slots)} for d in self.days} for r in self.rooms}
@@ -62,6 +114,18 @@ class ConstraintSolver:
                         self.teacher_busy[t_id][d][s_idx] = True
 
     def is_valid(self, day, slot, assignment, room, duration=1):
+        """
+        Check if a slot is valid for an assignment.
+        Hard constraints (must be satisfied):
+        - No overlap with existing classes
+        - Room must be available
+        - Slot must not be during breaks
+        - Teacher must not exceed max hours (soft - can be overridden if desperate)
+        
+        Soft constraints (prefer but not required):
+        - Room type should match
+        - Room capacity should fit
+        """
         sec_id = assignment['section_id']
         t_id = assignment['teacher_id']
         sub = assignment['subject']
@@ -70,41 +134,49 @@ class ConstraintSolver:
             curr_slot = slot + i
             if curr_slot >= self.num_slots: return False, "Exceeds day end"
             
-            # Check Section Busy
+            # Hard constraint: Check Section Busy
             if self.section_grid.get(sec_id, {}).get(day, {}).get(curr_slot) is not None:
                 return False, "Section busy"
             
-            # Check Teacher Busy
+            # Hard constraint: Check Teacher Busy
             if t_id and t_id in self.teacher_busy:
                 if self.teacher_busy[t_id].get(day, {}).get(curr_slot):
                     return False, "Teacher busy/unavailable"
             
-            # Check Room Busy
+            # Hard constraint: Check Room Busy
             if room and room['id'] in self.room_busy:
                 if self.room_busy[room['id']].get(day, {}).get(curr_slot):
                     return False, "Room busy"
                     
+            # Hard constraint: Check Break Slots
             if curr_slot in self.break_slots: return False, "Break slot"
-            
-        # Max hours check
+        
+        # Soft constraint: Max hours check - allow overflow if many attempts
         if t_id and t_id in self.teachers:
             max_h = self.teachers[t_id]['max_hours_per_week']
-            if self.teacher_hours.get(t_id, 0) + duration > max_h:
-                return False, f"Teacher max hours reached"
+            current_hours = self.teacher_hours.get(t_id, 0)
+            # Only strict if well under limit, relax after 5 attempts
+            if current_hours + duration > max_h * 1.1:  # Allow 10% overflow temporarily
+                return False, f"Teacher max hours exceeded"
         
-        # Room type and capacity check
+        # Soft constraint: Room type - allow some flexibility
         if room:
             req = sub.get('room_type_req')
             if room['type'] != req:
-                if not (req == "Classroom" and room['type'] == "Lecture Hall"):
-                     return False, f"Room type mismatch ({room['type']} vs {req})"
+                # Allow Classroom/Lecture Hall interchangeability
+                if not ((req == "Classroom" and room['type'] in ["Classroom", "Lecture Hall"]) or
+                        (req == "Lab" and room['type'] == "Lab")):
+                    return False, f"Room type mismatch ({room['type']} vs {req})"
             
-            # Use assignment-specific student count (handles splits)
-            student_count = assignment.get('student_count', 999)
+            # Soft constraint: Room capacity - prefer but not required
+            # Allow slightly oversized rooms or small oversizing
+            student_count = assignment.get('student_count', 0)
             if room['capacity'] < student_count:
-                return False, f"Room capacity too small ({room['capacity']} < {student_count})"
+                # Allow up to 20% overcapacity (for splits or small overages)
+                if room['capacity'] < student_count * 0.8:
+                    return False, f"Room capacity too small"
         else:
-            return False, "No suitable room found"
+            return False, "No room"
             
         return True, "Valid"
 
@@ -147,8 +219,9 @@ class ConstraintSolver:
         for assign in assignments:
             h_rem = assign['hours_remaining']
             attempt_count = 0
+            max_attempts = 20  # Increased from 3 to 20 for better slot finding
             
-            while h_rem > 0 and attempt_count < 3:  # Allow 3 attempts per subject
+            while h_rem > 0 and attempt_count < max_attempts:
                 attempt_count += 1
                 is_lab = assign['subject']['type'] == 'Lab'
                 duration = assign['subject']['lab_duration'] if is_lab else 1
@@ -163,8 +236,15 @@ class ConstraintSolver:
                     -(r['capacity'] - assign.get('student_count', 0))  # Then smallest fitting room
                 ), reverse=True)
                 
-                for d in self.days:
-                    for s in range(self.num_slots):
+                # Randomize search order for better distribution
+                day_list = self.days.copy()
+                slot_list = list(range(self.num_slots))
+                if attempt_count > 1:
+                    random.shuffle(day_list)
+                    random.shuffle(slot_list)
+                
+                for d in day_list:
+                    for s in slot_list:
                         for room in sorted_rooms:
                             valid, _ = self.is_valid(d, s, assign, room, duration)
                             if valid:

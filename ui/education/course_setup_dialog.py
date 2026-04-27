@@ -1,3 +1,26 @@
+"""
+Course Setup Dialog - course_setup_dialog.py
+Dialog for adding or editing individual courses/subjects in the Education Wizard.
+
+Purpose:
+- Provides a focused form for adding a single subject
+- Used by SubjectSetupScreen for add/edit operations
+- Validates input before saving to database
+
+Fields:
+- Subject Code (e.g., CS201)
+- Subject Name (e.g., Data Structures)
+- Subject Type (Theory, Lab, Elective)
+- Teacher assignment
+- Weekly hours (2, 3, 4, etc.)
+- Room type requirement (Classroom, Lab)
+- Lab duration (for lab classes)
+- Split groups (for divided classes)
+
+Modal dialog that blocks the parent window until closed.
+Used as part of the larger subject management workflow.
+"""
+
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QComboBox, QSpinBox

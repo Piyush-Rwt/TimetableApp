@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QDialog, QTextBrowser, QMessageBox, QFrame
 from PySide6.QtCore import Qt
 import db.queries as queries
+from random_data_generator import generate_random_data
 
 class AdminDialog(QDialog):
     def __init__(self, parent=None, switch_cb=None):
@@ -39,68 +40,83 @@ class AdminDialog(QDialog):
         self.accept()
 
     def auto_fill(self):
+        """
+        Auto-fill database with random realistic test data.
+        Generates:
+        - 50 random teachers with varying max hours (12-28 hours/week)
+        - 20-25 random rooms (classrooms and labs with random capacities)
+        - 6-10 random sections with 50-80 students each
+        - 8-13 random subjects assigned to random teachers
+        - Random teacher unavailability slots
+        """
         queries.clear_all_data()
         
-        # 1. Institution
-        inst_data = {
-            "name": "Test University",
-            "department": "Computer Science",
-            "semester": "IV",
-            "working_days": "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday",
-            "start_time": "08:00",
-            "end_time": "18:00",  # Extended from 17:00 to 18:00 (+2 more slots)
-            "slot_duration_mins": 55
-        }
-        queries.update_institution(inst_data)
-        queries.insert_break({"name": "Short Break", "start_time": "09:50", "end_time": "10:10"})
-        queries.insert_break({"name": "Lunch Break", "start_time": "13:50", "end_time": "14:10"})
+        # Generate all random data
+        data = generate_random_data()
         
-        # 2. Sections
-        for s in ["A1", "A2", "B1", "B2"]:
-            queries.insert_section({"name": s, "student_count": 60})
-            
-        # 3. Teachers - Increased max hours
-        teachers = [
-            ("Mr. Smith", 24), ("Mr. Jones", 22), ("Ms. Alice", 24),
-            ("Mr. Brown", 16), ("Ms. White", 16)
-        ]
-        t_map = {}
-        for name, max_h in teachers:
-            tid = queries.insert_teacher({"name": name, "max_hours_per_week": max_h})
-            t_map[name] = tid
-            
-        # Unavailability: Mr. Brown Mon
-        for s_idx in range(9):
-            queries.insert_teacher_unavailability(t_map["Mr. Brown"], "Monday", s_idx)
-            
-        # 4. Rooms - Added 2 more
-        rooms = [
-            ("CR 101", "Classroom", 60), ("CR 102", "Classroom", 60), ("CR 103", "Classroom", 60),
-            ("CR 104", "Classroom", 60), ("LAB 1", "Lab", 35), ("LAB 2", "Lab", 35), ("LAB 3", "Lab", 35)
-        ]
-        for name, rtype, cap in rooms:
-            queries.insert_room({"name": name, "type": rtype, "capacity": cap})
-            
-        # 5. Subjects - Reduced theory hours (3→2), NO lab splits, better distribution
-        subjects = [
-            ("TCS 401", "Theory 1", "Theory", 2, t_map["Mr. Smith"], "Classroom", 1, 0),
-            ("TCS 402", "Theory 2", "Theory", 2, t_map["Mr. Jones"], "Classroom", 1, 0),
-            ("TCS 403", "Theory 3", "Theory", 2, t_map["Ms. Alice"], "Classroom", 1, 0),
-            ("PCS 401", "Lab 1", "Lab", 2, t_map["Mr. Smith"], "Lab", 2, 0),  # No split
-            ("PCS 402", "Lab 2", "Lab", 2, t_map["Ms. Alice"], "Lab", 2, 0),  # No split
-            ("ELECTIVE", "Elective 1", "Elective", 2, t_map["Mr. Brown"], "Classroom", 1, 0),
-            ("GEC 101", "General Course", "Theory", 2, t_map["Ms. White"], "Classroom", 1, 0)
-        ]
-        for code, name, stype, hrs, tid, rtype, dur, split in subjects:
-            queries.insert_subject({
-                "code": code, "name": name, "type": stype, "hours_per_week": hrs,
-                "teacher_id": tid, "room_type_req": rtype,
-                "lab_duration": dur, "split_groups": split
+        # 1. Insert Institution configuration
+        queries.update_institution(data["institution"])
+        
+        # 2. Insert Breaks
+        for brk in data["breaks"]:
+            queries.insert_break(brk)
+        
+        # 3. Insert Sections
+        for section_name, student_count in data["sections"]:
+            queries.insert_section({"name": section_name, "student_count": student_count})
+        
+        # 4. Insert Teachers and their unavailability
+        teacher_map = {}  # Maps teacher names to their IDs
+        for teacher_name, max_hours in data["teachers"]:
+            tid = queries.insert_teacher({
+                "name": teacher_name,
+                "max_hours_per_week": max_hours
             })
+            teacher_map[teacher_name] = tid
             
-        QMessageBox.information(self, "Success", "Test data loaded! Go to Education Mode to generate.")
+            # Add random unavailability slots if they exist
+            if teacher_name in data["teacher_unavailability"]:
+                for day, slot in data["teacher_unavailability"][teacher_name]:
+                    queries.insert_teacher_unavailability(tid, day, slot)
+        
+        # 5. Insert Rooms
+        for room_name, room_type, capacity in data["rooms"]:
+            queries.insert_room({
+                "name": room_name,
+                "type": room_type,
+                "capacity": capacity
+            })
+        
+        # 6. Insert Subjects with teacher assignments
+        for subject in data["subjects"]:
+            teacher_id = teacher_map.get(subject["teacher_name"])
+            if teacher_id:  # Only insert if teacher exists
+                queries.insert_subject({
+                    "code": subject["code"],
+                    "name": subject["name"],
+                    "type": subject["type"],
+                    "hours_per_week": subject["hours_per_week"],
+                    "teacher_id": teacher_id,
+                    "room_type_req": subject["room_type_req"],
+                    "lab_duration": subject["lab_duration"],
+                    "split_groups": subject["split_groups"]
+                })
+        
+        # Show summary and navigate
+        summary = f"""Random Test Data Generated:
+        
+• Teachers: {len(data['teachers'])}
+• Rooms: {len(data['rooms'])}
+• Sections: {len(data['sections'])}
+• Subjects: {len(data['subjects'])}
+• Working Days: {data['institution']['working_days']}
+• Slot Duration: {data['institution']['slot_duration_mins']} minutes
+
+Ready to generate schedule!"""
+        
+        QMessageBox.information(self, "Success", summary)
         if self.switch_cb:
-            self.switch_cb(4) # Navigate to Education Wizard
+            self.switch_cb(4)  # Navigate to Education Wizard
         self.accept()
 
 class HelpDialog(QDialog):
@@ -210,16 +226,16 @@ class DashboardScreen(QWidget):
         btn_admin.setFixedSize(80, 30)
         btn_admin.setStyleSheet("""
             QPushButton {
-                background: #1a1d27; 
-                color: #3b4054; 
-                border: 1px solid #2a2d3e; 
+                background: #add8e6; 
+                color: #003d82; 
+                border: 1px solid #87ceeb; 
                 border-radius: 4px;
                 font-size: 11px;
             }
             QPushButton:hover {
-                color: #4f6ef7;
-                border: 1px solid #4f6ef7;
-                background: #2a2d3e;
+                color: #ffffff;
+                border: 1px solid #4db8ff;
+                background: #87ceeb;
             }
         """)
         btn_admin.clicked.connect(self.show_admin)

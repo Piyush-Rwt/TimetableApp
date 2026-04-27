@@ -1,3 +1,21 @@
+"""
+Main Application Window - main_window.py
+This file creates the main application UI structure with navigation between different modes.
+
+The application has multiple screens accessed through a stacked widget (tab-like navigation):
+- Dashboard (home screen with quick actions)
+- Mode Selector (choose between Education/Personal/Business modes)
+- Education Wizard (7-step wizard for creating class schedules)
+- Personal Mode (individual schedule planning)
+- Business Mode (staff shift planning)
+- Settings (application preferences)
+
+Key Components:
+- QMainWindow: The main application window
+- QStackedWidget: Allows switching between different screens
+- Navigation buttons: Enable switching between modes
+"""
+
 import sys
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, 
@@ -21,6 +39,18 @@ from ui.education.generate_screen import GenerateScreen
 from ui.education.timetable_viewer import TimetableViewerScreen
 
 class EducationWizard(QWidget):
+    """
+    7-Step Education Wizard for creating class timetables.
+    
+    Steps:
+    1. Institution Setup - Configure school/university details
+    2. Section Setup - Add student divisions/classes
+    3. Subject Setup - Add courses and assign teachers
+    4. Constraint Setup - Set teacher hours and unavailability
+    5. Room Setup - Add classrooms and labs
+    6. Generate - Run the scheduling algorithm
+    7. View Results - Export timetable to Excel
+    """
     def __init__(self, main_switch_cb):
         super().__init__()
         self.main_switch_cb = main_switch_cb

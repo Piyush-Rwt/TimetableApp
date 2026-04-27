@@ -1,3 +1,21 @@
+"""
+Exam Database Manager - exam_db.py
+Handles exam scheduling data persistence and conflict graph generation.
+Used by the exam scheduler to store and retrieve exam information.
+
+Functions:
+- init_db(): Create exam database schema
+- seed_data(): Populate with sample exam data for testing
+- get_exams(): Retrieve all exams
+- get_conflicts(): Get exam conflict graph (which exams can't be at same time)
+- save_schedule(): Save final exam schedule to database
+
+Exam Conflict Types:
+- Students taking both exams (must be scheduled differently)
+- Teachers invigilating both exams
+- Room unavailability
+"""
+
 import sqlite3
 import os
 import sys

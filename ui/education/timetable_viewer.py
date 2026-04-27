@@ -1,27 +1,106 @@
+"""
+Timetable Viewer Screen - timetable_viewer.py
+Step 7 of the Education Wizard: View and export generated timetables.
+
+Features:
+- Display timetable in grid format (days × time slots)
+- View by section: See all classes for a specific student section
+- View by teacher: See all classes for a specific teacher
+- View by room: See all classes in a specific room
+- Color-coded classes by subject type (Theory=Blue, Lab=Green, Elective=Yellow)
+- Export to Excel: Generate professional Excel file with formatted schedules
+- Print timetable: Generate PDF/print-ready version
+
+Display:
+- Grid layout with days as columns and time slots as rows
+- Each cell shows: Subject Code, Teacher Name, Room Number
+- Color-coded for easy visual identification
+- Hover tooltips showing full details
+
+Export Options:
+- Excel workbook with multiple sheets
+- One sheet per section, teacher, or room view
+- Formatted with colors, borders, and auto-fit columns
+- Ready to print or distribute to students/staff
+"""
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QMessageBox, QFileDialog
+    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QMessageBox, QFileDialog, QStackedWidget
 )
 from PySide6.QtGui import QColor, QBrush, QFont
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer, QThread, Signal
 import db.queries as queries
 from engine.excel_exporter import export_full_timetable
 import os
+
+class TableRenderThread(QThread):
+    """Background thread to render table data without freezing UI."""
+    finished = Signal(list)  # Signal with entries list
+    
+    def __init__(self, query_func, table_key):
+        super().__init__()
+        self.query_func = query_func
+        self.table_key = table_key
+    
+    def run(self):
+        """Load table entries in background."""
+        entries = [dict(e) for e in self.query_func()]
+        self.finished.emit(entries)
 
 class TimetableViewerScreen(QWidget):
     def __init__(self, wizard_cb):
         super().__init__()
         self.wizard_cb = wizard_cb
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(20)
+        self.is_loading = False
+        self.current_tab = 0
+        self.render_threads = {}  # Track render threads
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(20)
 
         title = QLabel("Step 7: View & Export Timetable")
         title.setObjectName("TitleLabel")
-        layout.addWidget(title)
+        main_layout.addWidget(title)
 
+        # Loading overlay (positioned over tabs)
+        self.loading_overlay = QLabel("⏳ Loading timetable data...")
+        self.loading_overlay.setStyleSheet("""
+            QLabel {
+                font-size: 18px;
+                color: #4f9fbb;
+                font-weight: bold;
+                background-color: #ffffff;
+                border: 2px solid #4f9fbb;
+                border-radius: 8px;
+                padding: 20px;
+            }
+        """)
+        self.loading_overlay.setAlignment(Qt.AlignCenter)
+        self.loading_overlay.setFixedHeight(60)
+        self.loading_overlay.hide()
+        main_layout.addWidget(self.loading_overlay)
+        
         self.tabs = QTabWidget()
-        layout.addWidget(self.tabs)
+        self.tabs.setStyleSheet("""
+            QTabWidget::pane { border: 1px solid #b0d4e3; }
+            QTabBar::tab { 
+                background-color: #e0f2f7;
+                color: #01579b;
+                padding: 8px 20px;
+                border: 1px solid #b0d4e3;
+                border-bottom: none;
+                margin-right: 2px;
+            }
+            QTabBar::tab:selected { 
+                background-color: #4f9fbb;
+                color: #ffffff;
+            }
+        """)
+        # Connect tab change to load data
+        self.tabs.currentChanged.connect(self._on_tab_changed)
+        main_layout.addWidget(self.tabs)
 
         self.setup_section_view()
         self.setup_teacher_view()
@@ -29,17 +108,90 @@ class TimetableViewerScreen(QWidget):
 
         btn_layout = QHBoxLayout()
         btn_refresh = QPushButton("🔄 Refresh View")
-        btn_refresh.clicked.connect(self.refresh_all)
+        btn_refresh.setStyleSheet("""
+            QPushButton {
+                background-color: #b3e5fc;
+                color: #01579b;
+                border: 2px solid #4f9fbb;
+                padding: 8px 20px;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #81d4fa;
+            }
+        """)
+        btn_refresh.clicked.connect(self._do_refresh_current)
         btn_layout.addWidget(btn_refresh)
         
         btn_export = QPushButton("📤 Export All to Excel")
         btn_export.setObjectName("PrimaryButton")
+        btn_export.setStyleSheet("""
+            QPushButton {
+                background-color: #4f9fbb;
+                color: #ffffff;
+                border: 2px solid #2d7a99;
+                padding: 10px 20px;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2d7a99;
+            }
+        """)
         btn_export.setFixedSize(200, 45)
         btn_export.clicked.connect(self.export_to_excel)
         btn_layout.addStretch()
         btn_layout.addWidget(btn_export)
         
-        layout.addLayout(btn_layout)
+        main_layout.addLayout(btn_layout)
+        
+        # Timer for loading state
+        self.loading_timer = QTimer()
+        self.loading_timer.timeout.connect(self._finish_loading)
+        
+        self.show_loading()
+    
+    def show_loading(self):
+        """Show loading indicator and refresh data."""
+        self.is_loading = True
+        self.loading_overlay.show()
+        self.tabs.setEnabled(False)
+        self.loading_timer.start(1500)  # Wait 1.5 seconds before loading
+    
+    def _finish_loading(self):
+        """Hide loading indicator and load current tab."""
+        self.loading_timer.stop()
+        self.is_loading = False
+        self.loading_overlay.hide()
+        self.tabs.setEnabled(True)
+        self.refresh_all()
+    
+    def _on_tab_changed(self, tab_index):
+        """Handle tab change - show loading and load data."""
+        self.current_tab = tab_index
+        # Don't reload during initial setup
+        if not hasattr(self, 'slots_times'):
+            return
+        # Show brief loading indicator
+        self.loading_overlay.show()
+        self.tabs.setEnabled(False)
+        QTimer.singleShot(300, self._load_current_tab)
+    
+    def _load_current_tab(self):
+        """Load data for current tab."""
+        if self.current_tab == 0:
+            self.load_section_tt()
+        elif self.current_tab == 1:
+            self.load_teacher_tt()
+        elif self.current_tab == 2:
+            self.load_room_tt()
+        self.loading_overlay.hide()
+        self.tabs.setEnabled(True)
+    
+    def _do_refresh_current(self):
+        """Refresh current tab."""
+        self._load_current_tab()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -47,10 +199,30 @@ class TimetableViewerScreen(QWidget):
 
     def setup_section_view(self):
         w = QWidget()
+        w.setStyleSheet("""
+            QWidget {
+                background-color: #f5f5f5;
+            }
+        """)
         l = QVBoxLayout(w)
+        l.setContentsMargins(10, 10, 10, 10)
+        l.setSpacing(10)
         top = QHBoxLayout()
-        top.addWidget(QLabel("Select Section:"))
+        
+        lbl = QLabel("Select Section:")
+        lbl.setStyleSheet("color: #01579b; font-weight: bold;")
+        top.addWidget(lbl)
+        
         self.cmb_section = QComboBox()
+        self.cmb_section.setStyleSheet("""
+            QComboBox {
+                background-color: #b3e5fc;
+                color: #01579b;
+                border: 2px solid #4f9fbb;
+                padding: 6px;
+                border-radius: 4px;
+            }
+        """)
         self.cmb_section.currentIndexChanged.connect(self.load_section_tt)
         top.addWidget(self.cmb_section)
         top.addStretch()
@@ -62,10 +234,30 @@ class TimetableViewerScreen(QWidget):
 
     def setup_teacher_view(self):
         w = QWidget()
+        w.setStyleSheet("""
+            QWidget {
+                background-color: #f5f5f5;
+            }
+        """)
         l = QVBoxLayout(w)
+        l.setContentsMargins(10, 10, 10, 10)
+        l.setSpacing(10)
         top = QHBoxLayout()
-        top.addWidget(QLabel("Select Teacher:"))
+        
+        lbl = QLabel("Select Teacher:")
+        lbl.setStyleSheet("color: #01579b; font-weight: bold;")
+        top.addWidget(lbl)
+        
         self.cmb_teacher = QComboBox()
+        self.cmb_teacher.setStyleSheet("""
+            QComboBox {
+                background-color: #b3e5fc;
+                color: #01579b;
+                border: 2px solid #4f9fbb;
+                padding: 6px;
+                border-radius: 4px;
+            }
+        """)
         self.cmb_teacher.currentIndexChanged.connect(self.load_teacher_tt)
         top.addWidget(self.cmb_teacher)
         top.addStretch()
@@ -77,10 +269,30 @@ class TimetableViewerScreen(QWidget):
 
     def setup_room_view(self):
         w = QWidget()
+        w.setStyleSheet("""
+            QWidget {
+                background-color: #f5f5f5;
+            }
+        """)
         l = QVBoxLayout(w)
+        l.setContentsMargins(10, 10, 10, 10)
+        l.setSpacing(10)
         top = QHBoxLayout()
-        top.addWidget(QLabel("Select Room:"))
+        
+        lbl = QLabel("Select Room:")
+        lbl.setStyleSheet("color: #01579b; font-weight: bold;")
+        top.addWidget(lbl)
+        
         self.cmb_room = QComboBox()
+        self.cmb_room.setStyleSheet("""
+            QComboBox {
+                background-color: #b3e5fc;
+                color: #01579b;
+                border: 2px solid #4f9fbb;
+                padding: 6px;
+                border-radius: 4px;
+            }
+        """)
         self.cmb_room.currentIndexChanged.connect(self.load_room_tt)
         top.addWidget(self.cmb_room)
         top.addStretch()
@@ -91,10 +303,33 @@ class TimetableViewerScreen(QWidget):
         self.tabs.addTab(w, "Room-wise")
 
     def _create_table(self):
+        """
+        Create a styled QTableWidget with professional light colors and borders.
+        Uses light blue backgrounds (#e8f4f8) with distinct borders for differentiation.
+        """
         tbl = QTableWidget()
         tbl.setEditTriggers(QTableWidget.NoEditTriggers)
         tbl.setSelectionMode(QTableWidget.NoSelection)
         tbl.setWordWrap(True)
+        tbl.setStyleSheet("""
+            QTableWidget {
+                background-color: #ffffff;
+                gridline-color: #b0d4e3;
+                border: 1px solid #7ec8e3;
+            }
+            QTableWidget::item {
+                padding: 5px;
+                border: 1px solid #b0d4e3;
+                background-color: #ffffff;
+            }
+            QHeaderView::section {
+                background-color: #4f9fbb;
+                color: #ffffff;
+                padding: 8px;
+                border: 1px solid #2d7a99;
+                font-weight: bold;
+            }
+        """)
         return tbl
 
     def refresh_all(self):
@@ -181,38 +416,51 @@ class TimetableViewerScreen(QWidget):
         self._fill_table(self.tbl_room, entries, "subject_name", "section_name")
 
     def _fill_table(self, table, entries, line2_key, line3_key):
+        """
+        Fill table with entries efficiently. Optimized for fast rendering.
+        Only creates items for non-empty cells to improve performance.
+        """
         table.clearContents()
         
-        # 1. Mark Breaks
+        # 1. Pre-calculate break slots for this day/slot combination
         inst_row = queries.get_institution()
         if not inst_row: return
         breaks = [dict(b) for b in queries.get_breaks()]
         from datetime import datetime
         
+        # Build a set of break slots for O(1) lookup
+        break_slots = set()
         for d_idx, day in enumerate(self.days):
             for s_idx, t_range in enumerate(self.slots_times):
                 s_start = datetime.strptime(t_range.split('-')[0], "%H:%M")
                 s_end = datetime.strptime(t_range.split('-')[1], "%H:%M")
-                is_break = False
                 for b in breaks:
                     b_start = datetime.strptime(b['start_time'], "%H:%M")
                     b_end = datetime.strptime(b['end_time'], "%H:%M")
                     if not (s_end <= b_start or s_start >= b_end):
-                        is_break = True
+                        break_slots.add((d_idx, s_idx))
                         break
-                if is_break:
-                    item = QTableWidgetItem("BREAK")
-                    item.setBackground(QBrush(QColor("#f39c12")))
-                    item.setTextAlignment(Qt.AlignCenter)
-                    table.setItem(s_idx, d_idx, item)
 
-        # 2. Fill Entries
+        # 2. Fill breaks only (don't create items for empty cells)
+        for d_idx, s_idx in break_slots:
+            item = QTableWidgetItem("BREAK")
+            item.setBackground(QBrush(QColor("#ffd89b")))  # Light orange for breaks
+            item.setForeground(QBrush(QColor("#8B5A00")))  # Dark orange text
+            item.setTextAlignment(Qt.AlignCenter)
+            item.setFont(QFont("Arial", 10, QFont.Bold))
+            table.setItem(s_idx, d_idx, item)
+
+        # 3. Fill Entries (only create items for actual classes)
         for e in entries:
             try:
                 day_name = e['day'].strip()
                 if day_name not in self.days: continue
                 d_idx = self.days.index(day_name)
                 s_idx = e['slot_index']
+                
+                # Skip if already a break
+                if (d_idx, s_idx) in break_slots:
+                    continue
                 
                 sub_name = e.get('subject_name') or "Unknown"
                 line2 = e.get(line2_key) or "N/A"
@@ -221,13 +469,16 @@ class TimetableViewerScreen(QWidget):
                 text = f"{sub_name}\n({line2})\n[{line3}]"
                 item = QTableWidgetItem(text)
                 item.setTextAlignment(Qt.AlignCenter)
+                item.setFont(QFont("Arial", 9))
                 
                 if e.get('is_lab'): 
-                    item.setBackground(QBrush(QColor("#2ecc71")))
-                    item.setForeground(QBrush(QColor("#ffffff")))
+                    # Light green for lab classes
+                    item.setBackground(QBrush(QColor("#c8e6c9")))
+                    item.setForeground(QBrush(QColor("#1b5e20")))
                 else:
-                    item.setBackground(QBrush(QColor("#4f6ef7")))
-                    item.setForeground(QBrush(QColor("#ffffff")))
+                    # Light blue for theory classes
+                    item.setBackground(QBrush(QColor("#b3e5fc")))
+                    item.setForeground(QBrush(QColor("#01579b")))
                 
                 table.setItem(s_idx, d_idx, item)
             except Exception as err:

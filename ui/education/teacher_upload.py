@@ -1,3 +1,30 @@
+"""
+Teacher Upload Screen - teacher_upload.py
+Step 4 of the Education Wizard (Part 1): Add teachers and set their constraints.
+
+Features:
+- Add teachers with names
+- Set maximum hours per week (e.g., 24 hours)
+- Set unavailable time slots
+- Manage teacher list with add/remove/edit
+- Configure teacher unavailability schedule
+
+Teacher Constraints:
+- Max hours per week: Total teaching hours per week (e.g., 24)
+- Unavailable slots: Specific days/times when teacher cannot teach
+  (e.g., Mr. Brown: Monday 9:00-10:00, Friday 14:00-15:00)
+  
+These constraints ensure:
+- Teachers don't exceed their maximum workload
+- Teachers are not scheduled during their unavailable times
+- Schedule respects teacher preferences and commitments
+
+Unavailability Dialog:
+- Select which days teacher is unavailable
+- Select which time slots on those days
+- Persisted to database for use during scheduling
+"""
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QSpinBox, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QDialog, QCheckBox, QGridLayout, QFrame

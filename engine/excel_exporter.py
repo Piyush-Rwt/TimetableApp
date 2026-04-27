@@ -1,3 +1,25 @@
+"""
+Excel Export Module - excel_exporter.py
+Exports generated timetables to professional Excel files.
+
+Features:
+- Creates formatted Excel workbooks from timetable data
+- Multiple sheets: one per section, one per teacher, one per room
+- Cell formatting: colors, borders, fonts, alignment
+- Time slots clearly labeled with day and time
+- Subject details: Code, name, teacher, room
+- Auto-fit columns and rows for readability
+
+Output Format:
+- File: University_Timetable.xlsx or custom path
+- Each sheet is a grid: rows = time slots, columns = days
+- Color coding: Light gray background for easy reading
+- Cell borders for clarity
+- Frozen header rows and columns for easy navigation
+
+Uses: openpyxl library for Excel file generation
+"""
+
 import openpyxl
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Font
 import os
@@ -11,6 +33,19 @@ else:
 DEFAULT_EXPORT_PATH = os.path.join(BASE_DIR, "saved_tt", "University_Timetable.xlsx")
 
 def export_full_timetable(result, sections, subjects, teachers, rooms, filepath=DEFAULT_EXPORT_PATH):
+    """
+    Export complete timetable to Excel workbook.
+    
+    Args:
+        result: Final schedule (dict mapping slots to assignments)
+        sections: List of student sections
+        subjects: List of subjects/courses
+        teachers: List of teachers
+        rooms: List of rooms
+        filepath: Output Excel file path
+    
+    Creates sheets for each section showing the complete weekly schedule.
+    """
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
     

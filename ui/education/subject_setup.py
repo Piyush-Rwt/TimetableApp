@@ -1,3 +1,28 @@
+"""
+Subject Setup Screen - subject_setup.py
+Step 3 of the Education Wizard: Add subjects and assign teachers.
+
+Features:
+- Add courses/subjects (e.g., Mathematics, Physics, Programming)
+- Set subject code and type (Theory, Lab, Elective)
+- Assign teacher to teach the subject
+- Set weekly hours
+- Define room type requirement (Classroom or Lab)
+- Configure lab duration and split groups
+
+A subject is a course that needs to be scheduled. It's taught by one teacher
+and must be scheduled in the appropriate room type with specified duration.
+
+Subject Types:
+- Theory: Lecture classes (standard classroom)
+- Lab: Practical classes (lab room, longer duration)
+- Elective: Optional courses for student choice
+
+Example:
+Code: CS201, Name: Data Structures, Type: Theory, Teacher: Dr. Smith,
+Hours: 3/week, Room: Classroom, Duration: 1 slot
+"""
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QSpinBox, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QComboBox, QFrame

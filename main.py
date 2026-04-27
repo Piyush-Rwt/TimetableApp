@@ -1,3 +1,16 @@
+"""
+ScheduleForge - Main Entry Point
+This is the starting point of the application. It:
+1. Checks for application updates
+2. Initializes the PySide6 GUI framework
+3. Loads and displays the main application window
+
+The application is a timetable/schedule generation system with three modes:
+- Education Mode: For schools and universities (creates class schedules)
+- Personal Mode: For individuals (personal event scheduling)
+- Business Mode: For organizations (staff shift planning)
+"""
+
 import sys
 import os
 import requests
@@ -14,6 +27,13 @@ VERSION_URL = "https://raw.githubusercontent.com/Piyush-Rwt/TimetableApp/main/ve
 CURRENT_VERSION = "1.0"
 
 def check_for_updates(parent=None):
+    """
+    Check GitHub for new application versions and notify user if update available.
+    This runs asynchronously to not block the UI.
+    
+    Args:
+        parent: Parent widget for displaying message dialogs
+    """
     try:
         response = requests.get(VERSION_URL, timeout=5)
         if response.status_code == 200:

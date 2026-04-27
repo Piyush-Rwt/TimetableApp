@@ -1,3 +1,21 @@
+"""
+Business Mode Screen - business_mode.py
+Scheduling interface for organizations to plan staff shifts and work assignments.
+
+Features:
+- Add employees/staff
+- Define shift patterns
+- Assign roles and responsibilities
+- Handle employee availability
+- Generate fair shift schedules
+
+Use Cases:
+- Restaurant/retail staff scheduling
+- Hospital shift planning
+- Factory worker scheduling
+- 24/7 operation coverage
+"""
+
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem, QHeaderView
 from PySide6.QtCore import Qt
 
